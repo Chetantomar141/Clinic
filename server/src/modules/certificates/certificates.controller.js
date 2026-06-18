@@ -1,0 +1,417 @@
+import { z } from 'zod';
+import { prisma } from '../../config/prisma.js';
+import { AuditService } from '../../services/auditService.js';
+import { NotificationService } from '../../services/notificationService.js';
+import { PDFService } from '../../services/pdfService.js';
+import { calculateCertificateHash } from '../../utils/hash.js';
+import { config } from '../../config/index.js';
+import logger from '../../utils/logger.js';
+import { certificate_type } from '@prisma/client';
+
+const createCertificateSchema = z.object({
+  patientId: z.string(),
+  doctorId: z.string().optional(), // optional if logged in user is a DOCTOR
+  type: z.nativeEnum(certificate_type).default(certificate_type.MEDICAL_CERTIFICATE),
+  startDate: z.string(),
+  endDate: z.string(),
+  diagnosis: z.string().min(3),
+  remarks: z.string().optional(),
+});
+
+const revokeSchema = z.object({
+  reason: z.string().min(3),
+});
+
+const logDetailedError = (label, error) => {
+  logger.error(`========== ${label} ==========`);
+  logger.error(error);
+  logger.error(`MESSAGE: ${error?.message}`);
+  logger.error(`STACK: ${error?.stack}`);
+
+  if (error?.response) {
+    logger.error(`STATUS: ${error.response.status}`);
+    logger.error(`DATA: ${JSON.stringify(error.response.data)}`);
+  }
+
+  if (error?.http_code) {
+    logger.error(`HTTP_CODE: ${error.http_code}`);
+  }
+};
+
+export class CertificatesController {
+  // List certificates with filters
+  static async listCertificates(req, res) {
+    try {
+      const clinicId = req.user?.clinicId;
+      const isSuperAdmin = req.user?.role === 'SUPER_ADMIN';
+
+      if (!clinicId && !isSuperAdmin) {
+        return res.status(400).json({ error: 'No clinic context' });
+      }
+
+      const { patientId, doctorId, status, q } = req.query;
+
+      const filters = {};
+      if (!isSuperAdmin) {
+        filters.clinicId = clinicId;
+      }
+      if (patientId) filters.patientId = String(patientId);
+      if (doctorId) filters.doctorId = String(doctorId);
+      if (status) filters.status = status;
+      
+      if (q) {
+        filters.OR = [
+          { certificateNumber: { contains: String(q) } },
+          { patient: { fullName: { contains: String(q) } } },
+          { patient: { identifier: { contains: String(q) } } },
+        ];
+      }
+
+      const certificates = await prisma.certificate.findMany({
+        where: filters,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          patient: {
+            select: { fullName: true, identifier: true, email: true },
+          },
+          doctor: {
+            include: {
+              user: {
+                select: { firstName: true, lastName: true },
+              },
+            },
+          },
+        },
+      });
+
+      return res.status(200).json(certificates);
+    } catch (error) {
+      logger.error('List certificates error:', error);
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
+
+  // Create Certificate (DOCTOR or CLINIC_ADMIN)
+  static async createCertificate(req, res) {
+    let generatedPdf = null;
+
+    try {
+      logger.info('[Certificate Pipeline] Step 1: Validating Request');
+      const clinicId = req.user?.clinicId;
+      if (!clinicId) {
+        return res.status(400).json({ error: 'No clinic context' });
+      }
+
+      const data = createCertificateSchema.parse(req.body);
+
+      // Determine Doctor context
+      let selectedDoctorId = '';
+      if (req.user?.role === 'DOCTOR') {
+        const doctor = await prisma.doctor.findUnique({
+          where: { userId: req.user.userId },
+        });
+        if (!doctor || doctor.isSuspended) {
+          return res.status(403).json({ error: 'Doctor account is not active or suspended' });
+        }
+        selectedDoctorId = doctor.id;
+      } else if (data.doctorId) {
+        selectedDoctorId = data.doctorId;
+      } else {
+        return res.status(400).json({ error: 'Doctor context or doctorId is required' });
+      }
+
+      logger.info('[Certificate Pipeline] Step 2: Loading Patient');
+      const patient = await prisma.patient.findFirst({
+        where: { id: data.patientId, clinicId },
+      });
+      if (!patient) {
+        return res.status(404).json({ error: 'Patient not found' });
+      }
+
+      logger.info('[Certificate Pipeline] Step 3: Loading Doctor');
+      const doctor = await prisma.doctor.findFirst({
+        where: { id: selectedDoctorId, clinicId },
+        include: { user: true },
+      });
+      if (!doctor || doctor.isSuspended) {
+        return res.status(404).json({ error: 'Doctor not found or suspended' });
+      }
+
+      const clinic = await prisma.clinic.findUnique({
+        where: { id: clinicId },
+      });
+      if (!clinic) {
+        return res.status(404).json({ error: 'Clinic not found' });
+      }
+
+      const startDate = new Date(data.startDate);
+      const endDate = new Date(data.endDate);
+      
+      if (endDate < startDate) {
+        return res.status(400).json({ error: 'End Date cannot be earlier than Start Date' });
+      }
+
+      // Calculate Duration
+      const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+      const durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+      logger.info('[Certificate Pipeline] Step 4: Generating Certificate Number');
+      const year = new Date().getFullYear();
+      const lastCertificate = await prisma.certificate.findFirst({
+        where: {
+          certificateNumber: {
+            startsWith: `MC-${year}-`,
+          },
+        },
+        orderBy: { certificateNumber: 'desc' },
+        select: { certificateNumber: true },
+      });
+
+      const lastSequence = lastCertificate?.certificateNumber
+        ? Number.parseInt(lastCertificate.certificateNumber.split('-').at(-1), 10)
+        : 0;
+      const nextNum = String((Number.isFinite(lastSequence) ? lastSequence : 0) + 1).padStart(6, '0');
+      const certificateNumber = `MC-${year}-${nextNum}`;
+      const issueDate = new Date();
+      const verificationHash = calculateCertificateHash(
+        certificateNumber,
+        patient.id,
+        doctor.id,
+        issueDate
+      );
+      const verifyUrl = `${config.clientUrl}/verify/${certificateNumber}`;
+
+      generatedPdf = await PDFService.generateCertificatePDF({
+        clinicName: clinic.name,
+        clinicAddress: clinic.address,
+        clinicPhone: clinic.contactNumber,
+        clinicEmail: clinic.email,
+        clinicLogoUrl: clinic.logoUrl,
+        doctorName: `${doctor.user.firstName} ${doctor.user.lastName}`,
+        doctorLicense: doctor.licenseNumber,
+        doctorSpecialization: doctor.specialization,
+        doctorSignatureUrl: doctor.signatureUrl,
+        patientName: patient.fullName,
+        patientIdentifier: patient.identifier,
+        patientDob: patient.dob.toISOString(),
+        patientGender: patient.gender,
+        certificateNumber,
+        issueDate: issueDate.toISOString(),
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        durationDays,
+        diagnosis: data.diagnosis,
+        remarks: data.remarks || '',
+        verificationHash,
+        verifyUrl,
+      });
+
+      const certificatePayload = {
+        certificateNumber,
+        clinicId,
+        doctorId: doctor.id,
+        patientId: patient.id,
+        type: data.type,
+        issueDate,
+        startDate,
+        endDate,
+        durationDays,
+        diagnosis: data.diagnosis,
+        remarks: data.remarks || null,
+        status: 'ACTIVE',
+        qrCodeUrl: verifyUrl,
+        qrUrl: null,
+        qrPublicId: null,
+        pdfUrl: null,
+        pdfPublicId: null,
+        verificationHash,
+      };
+
+      logger.info('[Certificate Pipeline] Step 9: Creating Database Record');
+      logger.info(`CERTIFICATE PAYLOAD ${JSON.stringify({
+        certificateNumber: certificatePayload.certificateNumber,
+        patientId: certificatePayload.patientId,
+        doctorId: certificatePayload.doctorId,
+        pdfAttachment: generatedPdf?.filename,
+      })}`);
+
+      const certificate = await prisma.$transaction(async (tx) => {
+        const newCert = await tx.certificate.create({
+          data: certificatePayload,
+        });
+
+        return newCert;
+      });
+
+      // Audit Log
+      await AuditService.log({
+        userId: req.user?.userId,
+        clinicId,
+        action: 'CERTIFICATE_CREATE',
+        targetType: 'CERTIFICATE',
+        targetId: certificate.id,
+        details: `Certificate ${certificate.certificateNumber} generated for Patient ${patient.fullName}`,
+        ipAddress: req.ip || '',
+      });
+
+      logger.info('[Certificate Pipeline] Step 10: Sending Email');
+      const validityPeriod = `${new Date(data.startDate).toLocaleDateString('en-SG')} to ${new Date(data.endDate).toLocaleDateString('en-SG')}`;
+      const emailBody = NotificationService.getCertificateCreatedTemplate(
+        clinic.name,
+        patient.fullName,
+        certificate.certificateNumber,
+        validityPeriod,
+        certificate.qrCodeUrl || ''
+      );
+
+      const emailResult = await NotificationService.sendEmail({
+        userId: req.user?.userId || '',
+        email: patient.email,
+        subject: `Medical Certificate Issued: ${certificate.certificateNumber}`,
+        body: emailBody,
+        type: 'CERTIFICATE_CREATED',
+        attachmentPath: generatedPdf.pdfPath,
+        attachmentFilename: generatedPdf.filename,
+        attachmentContentType: 'application/pdf',
+      });
+
+      if (!emailResult.success) {
+        logger.error(`Certificate email failed for ${certificate.certificateNumber}:`, emailResult.error);
+      }
+
+      return res.status(201).json(certificate);
+    } catch (error) {
+      logDetailedError('CERTIFICATE ERROR', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Validation failed', details: error.errors });
+      }
+      return res.status(500).json({
+        success: false,
+        message: error?.message || 'Internal Server Error',
+      });
+    } finally {
+      await PDFService.cleanupTempPDF(generatedPdf?.pdfPath);
+    }
+  }
+
+  // Revoke Certificate
+  static async revokeCertificate(req, res) {
+    try {
+      const clinicId = req.user?.clinicId;
+      const { id } = req.params; // certificateId or certificateNumber
+      const { reason } = revokeSchema.parse(req.body);
+
+      if (!clinicId) {
+        return res.status(400).json({ error: 'No clinic context' });
+      }
+
+      const certificate = await prisma.certificate.findFirst({
+        where: {
+          OR: [
+            { id, clinicId },
+            { certificateNumber: id, clinicId },
+          ],
+        },
+        include: {
+          patient: true,
+          clinic: true,
+        },
+      });
+
+      if (!certificate) {
+        return res.status(404).json({ error: 'Certificate not found' });
+      }
+
+      if (certificate.status === 'REVOKED') {
+        return res.status(400).json({ error: 'Certificate is already revoked' });
+      }
+
+      const updated = await prisma.certificate.update({
+        where: { id: certificate.id },
+        data: { status: 'REVOKED' },
+      });
+
+      await AuditService.log({
+        userId: req.user?.userId,
+        clinicId,
+        action: 'CERTIFICATE_REVOKE',
+        targetType: 'CERTIFICATE',
+        targetId: certificate.id,
+        details: `Certificate ${certificate.certificateNumber} revoked. Reason: ${reason}`,
+        ipAddress: req.ip || '',
+      });
+
+      // Send email notification to patient
+      const emailBody = NotificationService.getCertificateRevokedTemplate(
+        certificate.clinic.name,
+        certificate.patient.fullName,
+        certificate.certificateNumber,
+        reason
+      );
+
+      NotificationService.sendEmail({
+        userId: req.user?.userId || '',
+        email: certificate.patient.email,
+        subject: `URGENT: Medical Certificate Revoked - ${certificate.certificateNumber}`,
+        body: emailBody,
+        type: 'CERTIFICATE_REVOKED',
+      }).catch((e) => logger.error('Async notification failed:', e));
+
+      return res.status(200).json({
+        message: 'Certificate revoked successfully',
+        certificate: updated,
+      });
+    } catch (error) {
+      logger.error('Revoke certificate error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Validation failed', details: error.errors });
+      }
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
+
+  // Get details
+  static async getCertificateDetails(req, res) {
+    try {
+      const clinicId = req.user?.clinicId;
+      const isSuperAdmin = req.user?.role === 'SUPER_ADMIN';
+      const { id } = req.params;
+
+      if (!clinicId && !isSuperAdmin) {
+        return res.status(400).json({ error: 'No clinic context' });
+      }
+
+      const whereClause = { id };
+      if (!isSuperAdmin) {
+        whereClause.clinicId = clinicId;
+      }
+
+      const certificate = await prisma.certificate.findFirst({
+        where: whereClause,
+        include: {
+          patient: true,
+          doctor: {
+            include: {
+              user: {
+                select: { firstName: true, lastName: true },
+              },
+            },
+          },
+          clinic: true,
+          certificatefile: true,
+        },
+      });
+
+      if (!certificate) {
+        return res.status(404).json({ error: 'Certificate not found' });
+      }
+
+      return res.status(200).json(certificate);
+    } catch (error) {
+      logger.error('Get certificate details error:', error);
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
+}
+
+export default CertificatesController;

@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-primary: #7C3AED;
+  --color-primary-dark: #6D28D9;
+  --color-secondary: #00C896;
+  --color-secondary-dark: #00A37A;
+  --color-success: #16A34A;
+  --color-warning: #F59E0B;
+  --color-danger: #DC2626;
+  --color-medical-bg: #F8FAFC;
+  --color-medical-card: #FFFFFF;
+  
+  --font-sans: 'Inter', 'Poppins', sans-serif;
+}
+
+@layer utilities {
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  
+  .glass-panel-dark {
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .glow-green {
+    box-shadow: 0 0 15px rgba(22, 163, 74, 0.25);
+  }
+  
+  .glow-purple {
+    box-shadow: 0 0 15px rgba(124, 58, 237, 0.25);
+  }
+  
+  .glow-red {
+    box-shadow: 0 0 15px rgba(220, 38, 38, 0.25);
+  }
+}
+
+/* Base resets & custom animations */
+body {
+  background-color: var(--color-medical-bg);
+  color: #1e293b;
+  font-family: var(--font-sans);
+  min-height: 100vh;
+}
+
+/* Soft scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}

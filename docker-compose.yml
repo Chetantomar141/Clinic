@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  mysql_db:
+    image: mysql:8
+    container_name: mysql_db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: healthcare_saas
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - healthcare_net
+
+  server:
+    build: ./server
+    container_name: express_server
+    environment:
+      DATABASE_URL: "mysql://root:rootpassword@mysql_db:3306/healthcare_saas"
+      PORT: 4000
+      NODE_ENV: production
+      JWT_SECRET: "healthcare_jwt_access_secret_key_2026_xyz"
+      JWT_REFRESH_SECRET: "healthcare_jwt_refresh_secret_key_2026_xyz"
+      CLIENT_URL: "http://localhost"
+      SERVER_URL: "http://localhost:4000"
+      VERIFICATION_SECRET: "supersecretmedicalverificationkey2026"
+    ports:
+      - "4000:4000"
+    volumes:
+      - upload_data:/usr/src/app/uploads
+      - log_data:/usr/src/app/logs
+    depends_on:
+      mysql_db:
+        condition: service_healthy
+    networks:
+      - healthcare_net
+
+  client:
+    build: ./client
+    container_name: react_client
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+    networks:
+      - healthcare_net
+
+volumes:
+  mysql_data:
+  upload_data:
+  log_data:
+
+networks:
+  healthcare_net:
+    driver: bridge
