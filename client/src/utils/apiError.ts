@@ -1,8 +1,4 @@
 export const getApiErrorMessage = (error: unknown, fallback = 'Request failed. Please try again.') => {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-
   if (typeof error !== 'object' || error === null) {
     return fallback;
   }
@@ -24,6 +20,10 @@ export const getApiErrorMessage = (error: unknown, fallback = 'Request failed. P
 
   if (serverMessage && typeof serverMessage === 'object') {
     return JSON.stringify(serverMessage);
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
   }
 
   return fallback;

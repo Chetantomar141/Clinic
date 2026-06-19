@@ -1,0 +1,5 @@
+{"level":"info","message":"[Cloudinary] credentials loaded: cloudName=true, apiKey=true, apiSecret=true, required=true","service":"healthcare-verification-service","timestamp":"2026-06-19 11:53:06"}
+{"level":"info","message":"MongoDB Connected","service":"healthcare-verification-service","timestamp":"2026-06-19 11:53:07"}
+{"level":"info","message":"Healthcare Platform API running in [development] mode on port 4000","service":"healthcare-verification-service","timestamp":"2026-06-19 11:53:07"}
+{"level":"info","message":"Swagger API documentation available at http://localhost:4000/api/docs","service":"healthcare-verification-service","timestamp":"2026-06-19 11:53:07"}
+{"level":"info","message":"MongoDB Connected","service":"healthcare-verification-service","timestamp":"2026-06-19 11:53:39"}

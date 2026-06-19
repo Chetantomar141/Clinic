@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { UserCheck, Plus, X, Upload, Trash2, ShieldAlert, CheckCircle2, AlertCircle } from 'lucide-react';
+import { UserCheck, Plus, X, Trash2, AlertCircle } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { api } from '../../api/axios';
 import { useAuthStore } from '../../store/authStore';
 import { getApiErrorMessage } from '../../utils/apiError';
+import { useToast } from '../../components/ToastProvider';
 
 interface Doctor {
   id: string;
@@ -28,6 +30,7 @@ interface Doctor {
 
 export default function Doctors() {
   const { user } = useAuthStore();
+  const toast = useToast();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -47,7 +50,6 @@ export default function Doctors() {
     licenseNumber: '',
     specialization: '',
   });
-  const [signatureFile, setSignatureFile] = useState<File | null>(null);
 
   useEffect(() => {
     fetchDoctors();
@@ -61,7 +63,9 @@ export default function Doctors() {
       setDoctors(response?.data || []);
     } catch (err: unknown) {
       console.error(err);
-      setError(getApiErrorMessage(err, 'Failed to fetch doctor roster.'));
+      const message = getApiErrorMessage(err, 'Failed to fetch doctor roster.');
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -69,12 +73,6 @@ export default function Doctors() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setSignatureFile(e.target.files[0]);
-    }
   };
 
   const handleCreateDoctor = async (e: React.FormEvent) => {
@@ -87,15 +85,14 @@ export default function Doctors() {
       Object.entries(formData).forEach(([key, val]) => {
         data.append(key, val);
       });
-      if (signatureFile) {
-        data.append('signature', signatureFile);
-      }
 
-      await api.post('/doctors', data, {
+      const response = await api.post('/doctors', data, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
+
+      toast.success(response?.data?.message || 'Doctor registered successfully.');
 
       // Reset
       setModalOpen(false);
@@ -108,11 +105,12 @@ export default function Doctors() {
         licenseNumber: '',
         specialization: '',
       });
-      setSignatureFile(null);
       fetchDoctors();
     } catch (err: unknown) {
       console.error(err);
-      setModalError(getApiErrorMessage(err, 'Failed to create doctor record.'));
+      const message = getApiErrorMessage(err, 'Failed to create doctor record.');
+      setModalError(message);
+      toast.error(message);
     } finally {
       setSubmitLoading(false);
     }
@@ -123,11 +121,12 @@ export default function Doctors() {
       return;
     }
     try {
-      await api.post(`/doctors/${id}/toggle-status`, { suspend: !currentlySuspended });
+      const response = await api.post(`/doctors/${id}/toggle-status`, { suspend: !currentlySuspended });
+      toast.success(response?.data?.message || 'Doctor status updated.');
       fetchDoctors();
     } catch (err: unknown) {
       console.error(err);
-      alert(getApiErrorMessage(err, 'Failed to update doctor status'));
+      toast.error(getApiErrorMessage(err, 'Failed to update doctor status'));
     }
   };
 
@@ -136,11 +135,12 @@ export default function Doctors() {
       return;
     }
     try {
-      await api.delete(`/doctors/${id}`);
+      const response = await api.delete(`/doctors/${id}`);
+      toast.success(response?.data?.message || 'Doctor deleted successfully.');
       fetchDoctors();
     } catch (err: unknown) {
       console.error(err);
-      alert(getApiErrorMessage(err, 'Failed to delete doctor'));
+      toast.error(getApiErrorMessage(err, 'Failed to delete doctor'));
     }
   };
 
@@ -154,13 +154,18 @@ export default function Doctors() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: 'easeOut' }}
+      className="space-y-6"
+    >
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
             <UserCheck className="w-6 h-6 text-primary" /> Attending Doctors Directory
           </h1>
-          <p className="text-xs text-slate-400 font-semibold mt-0.5">Manage licenses, specialties, and digital signatures</p>
+          <p className="text-xs text-slate-400 font-semibold mt-0.5">Manage licenses and specialties</p>
         </div>
         {!isSuperAdmin && (
           <button 
@@ -181,8 +186,15 @@ export default function Doctors() {
 
       {/* Grid List */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {(doctors || []).map((doc) => (
-          <div key={doc?.id} className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col justify-between space-y-4">
+        {(doctors || []).map((doc, index) => (
+          <motion.div
+            key={doc?.id}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.22, delay: index * 0.04, ease: 'easeOut' }}
+            whileHover={{ y: -3 }}
+            className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col justify-between space-y-4"
+          >
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="font-extrabold text-slate-950 dark:text-white text-md">Dr. {doc?.user?.firstName} {doc?.user?.lastName}</h3>
@@ -243,7 +255,7 @@ export default function Doctors() {
                 </button>
               </div>
             )}
-          </div>
+          </motion.div>
         ))}
 
         {(doctors || []).length === 0 && (
@@ -254,9 +266,22 @@ export default function Doctors() {
       </div>
 
       {/* Add Doctor Modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl p-6 space-y-6 relative max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+      <AnimatePresence>
+        {modalOpen && (
+          <motion.div
+            className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-6 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+          >
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 18, scale: 0.96 }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
+            className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl p-6 space-y-6 relative max-h-[90vh] overflow-y-auto"
+          >
             <button 
               onClick={() => setModalOpen(false)}
               className="absolute top-4 right-4 p-1 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg text-slate-500"
@@ -266,7 +291,7 @@ export default function Doctors() {
 
             <div>
               <h3 className="font-extrabold text-slate-900 dark:text-white text-md">Register New Doctor</h3>
-              <p className="text-[10px] text-slate-400">Fill in details and upload signature to add a doctor</p>
+              <p className="text-[10px] text-slate-400">Fill in details to add a doctor</p>
             </div>
 
             {modalError && (
@@ -315,19 +340,6 @@ export default function Doctors() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Digital Signature Image</label>
-                <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-4 text-center hover:bg-slate-50 dark:hover:bg-slate-900 transition cursor-pointer relative">
-                  <input type="file" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" />
-                  <Upload className="w-6 h-6 text-slate-400 mx-auto mb-2" />
-                  {signatureFile ? (
-                    <span className="text-xs font-bold text-primary">{signatureFile.name}</span>
-                  ) : (
-                    <span className="text-xs text-slate-400">Click to upload signature (PNG with transparent bg)</span>
-                  )}
-                </div>
-              </div>
-
               <button 
                 type="submit" 
                 disabled={submitLoading}
@@ -336,9 +348,10 @@ export default function Doctors() {
                 {submitLoading ? 'Registering Doctor...' : 'Register Doctor'}
               </button>
             </form>
-          </div>
-        </div>
-      )}
-    </div>
+          </motion.div>
+        </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }
