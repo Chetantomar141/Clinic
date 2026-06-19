@@ -24,6 +24,7 @@ import {
 } from 'recharts';
 import { api } from '../../api/axios';
 import { useAuthStore } from '../../store/authStore';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 interface OverviewStats {
   totalClinics?: number;
@@ -69,10 +70,15 @@ export default function Overview() {
         api.get('/analytics/charts')
       ]);
 
+      if (!statsRes?.data || !chartsRes?.data) {
+        throw new Error('Invalid response from analytics service.');
+      }
+
       setStats(statsRes.data);
       setCharts(chartsRes.data);
-    } catch (err: any) {
-      setError('Failed to fetch analytics datasets. Make sure server is running.');
+    } catch (err: unknown) {
+      console.error(err);
+      setError(getApiErrorMessage(err, 'Failed to fetch analytics datasets. Make sure server is running.'));
     } finally {
       setLoading(false);
     }

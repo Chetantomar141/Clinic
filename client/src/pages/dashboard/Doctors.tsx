@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { UserCheck, Plus, X, Upload, Trash2, ShieldAlert, CheckCircle2, AlertCircle } from 'lucide-react';
 import { api } from '../../api/axios';
 import { useAuthStore } from '../../store/authStore';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 interface Doctor {
   id: string;
@@ -57,9 +58,10 @@ export default function Doctors() {
       setLoading(true);
       setError(null);
       const response = await api.get('/doctors');
-      setDoctors(response.data);
-    } catch (err: any) {
-      setError('Failed to fetch doctor roster.');
+      setDoctors(response?.data || []);
+    } catch (err: unknown) {
+      console.error(err);
+      setError(getApiErrorMessage(err, 'Failed to fetch doctor roster.'));
     } finally {
       setLoading(false);
     }
@@ -108,8 +110,9 @@ export default function Doctors() {
       });
       setSignatureFile(null);
       fetchDoctors();
-    } catch (err: any) {
-      setModalError(err.response?.data?.error || 'Failed to create doctor record.');
+    } catch (err: unknown) {
+      console.error(err);
+      setModalError(getApiErrorMessage(err, 'Failed to create doctor record.'));
     } finally {
       setSubmitLoading(false);
     }
@@ -122,8 +125,9 @@ export default function Doctors() {
     try {
       await api.post(`/doctors/${id}/toggle-status`, { suspend: !currentlySuspended });
       fetchDoctors();
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to update doctor status');
+    } catch (err: unknown) {
+      console.error(err);
+      alert(getApiErrorMessage(err, 'Failed to update doctor status'));
     }
   };
 
@@ -134,8 +138,9 @@ export default function Doctors() {
     try {
       await api.delete(`/doctors/${id}`);
       fetchDoctors();
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to delete doctor');
+    } catch (err: unknown) {
+      console.error(err);
+      alert(getApiErrorMessage(err, 'Failed to delete doctor'));
     }
   };
 

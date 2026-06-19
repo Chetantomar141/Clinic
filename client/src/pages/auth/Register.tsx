@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Building, Mail, User, Lock, Phone, MapPin, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { api } from '../../api/axios';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -48,8 +49,9 @@ export default function Register() {
       });
       // Redirect after 3s
       setTimeout(() => navigate('/login'), 3500);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Registration failed. Please check the fields and try again.');
+    } catch (err: unknown) {
+      console.error(err);
+      setError(getApiErrorMessage(err, 'Registration failed. Please check the fields and try again.'));
     } finally {
       setLoading(false);
     }

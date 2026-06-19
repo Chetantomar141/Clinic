@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import axios from 'axios';
 import gsap from 'gsap';
 import { 
   ShieldCheck, 
@@ -18,6 +17,7 @@ import {
   Info
 } from 'lucide-react';
 import { api } from '../../api/axios';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 interface VerificationResult {
   certificateNumber: string;
@@ -91,9 +91,13 @@ export default function Verify() {
       setCheckingExistence(true);
       setError(null);
       const { data } = await api.get(`/verify/${num}`);
+      if (!data?.clinicName) {
+        throw new Error('Invalid response from verification service.');
+      }
       setExistenceClinic(data.clinicName);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Certificate not found in database.');
+    } catch (err: unknown) {
+      console.error(err);
+      setError(getApiErrorMessage(err, 'Certificate not found in database.'));
       setExistenceClinic(null);
     } finally {
       setCheckingExistence(false);
@@ -117,9 +121,14 @@ export default function Verify() {
         identifier: identifier.trim(),
       });
 
+      if (!data) {
+        throw new Error('Invalid response from verification service.');
+      }
+
       setResult(data);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Verification failed. Please check the credentials and try again.');
+    } catch (err: unknown) {
+      console.error(err);
+      setError(getApiErrorMessage(err, 'Verification failed. Please check the credentials and try again.'));
     } finally {
       setLoading(false);
     }

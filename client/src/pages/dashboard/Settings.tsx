@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Settings, Upload, Lock, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
 import { api } from '../../api/axios';
 import { useAuthStore } from '../../store/authStore';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 export default function ClinicSettings() {
   const { user } = useAuthStore();
@@ -36,14 +37,14 @@ export default function ClinicSettings() {
     try {
       const { data } = await api.get('/clinics/profile');
       setProfileData({
-        name: data.name,
-        email: data.email,
-        contactNumber: data.contactNumber,
-        address: data.address,
-        themeConfig: data.themeConfig || '',
+        name: data?.name || '',
+        email: data?.email || '',
+        contactNumber: data?.contactNumber || '',
+        address: data?.address || '',
+        themeConfig: data?.themeConfig || '',
       });
-    } catch (err) {
-      console.error('Failed to fetch clinic settings');
+    } catch (err: unknown) {
+      console.error('Failed to fetch clinic settings', err);
     }
   };
 
@@ -81,8 +82,9 @@ export default function ClinicSettings() {
       setProfileSuccess('Clinic profile configuration saved successfully.');
       setLogoFile(null);
       fetchProfile();
-    } catch (err: any) {
-      setProfileError(err.response?.data?.error || 'Failed to save clinic configurations.');
+    } catch (err: unknown) {
+      console.error(err);
+      setProfileError(getApiErrorMessage(err, 'Failed to save clinic configurations.'));
     } finally {
       setProfileLoading(false);
     }
@@ -102,8 +104,9 @@ export default function ClinicSettings() {
       await api.post('/users/change-password', passwordData);
       setPasswordSuccess('Password changed successfully.');
       setPasswordData({ currentPassword: '', newPassword: '' });
-    } catch (err: any) {
-      setPasswordError(err.response?.data?.error || 'Failed to update password.');
+    } catch (err: unknown) {
+      console.error(err);
+      setPasswordError(getApiErrorMessage(err, 'Failed to update password.'));
     } finally {
       setPasswordLoading(false);
     }

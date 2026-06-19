@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { History, Search, AlertTriangle, User } from 'lucide-react';
 import { api } from '../../api/axios';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 interface AuditLog {
   id: string;
@@ -33,9 +34,10 @@ export default function AuditLogs() {
       setLoading(true);
       setError(null);
       const { data } = await api.get(`/analytics/audit-logs?q=${searchQuery}&action=${actionFilter}`);
-      setLogs(data);
-    } catch (err: any) {
-      setError('Failed to fetch internal audit trail logs.');
+      setLogs(data || []);
+    } catch (err: unknown) {
+      console.error(err);
+      setError(getApiErrorMessage(err, 'Failed to fetch internal audit trail logs.'));
     } finally {
       setLoading(false);
     }

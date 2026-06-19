@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Plus, X, Trash2, AlertCircle } from 'lucide-react';
 import { api } from '../../api/axios';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 interface Staff {
   id: string;
@@ -42,9 +43,10 @@ export default function Staff() {
       setLoading(true);
       setError(null);
       const { data } = await api.get('/staff');
-      setStaff(data);
-    } catch (err: any) {
-      setError('Failed to fetch clinic staff roster.');
+      setStaff(data || []);
+    } catch (err: unknown) {
+      console.error(err);
+      setError(getApiErrorMessage(err, 'Failed to fetch clinic staff roster.'));
     } finally {
       setLoading(false);
     }
@@ -71,8 +73,9 @@ export default function Staff() {
         position: '',
       });
       fetchStaff();
-    } catch (err: any) {
-      setModalError(err.response?.data?.error || 'Failed to create staff member.');
+    } catch (err: unknown) {
+      console.error(err);
+      setModalError(getApiErrorMessage(err, 'Failed to create staff member.'));
     } finally {
       setSubmitLoading(false);
     }
@@ -85,8 +88,9 @@ export default function Staff() {
     try {
       await api.post(`/staff/${id}/toggle-status`, { suspend: !currentlySuspended });
       fetchStaff();
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to update staff status');
+    } catch (err: unknown) {
+      console.error(err);
+      alert(getApiErrorMessage(err, 'Failed to update staff status'));
     }
   };
 
@@ -97,8 +101,9 @@ export default function Staff() {
     try {
       await api.delete(`/staff/${id}`);
       fetchStaff();
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to delete staff member');
+    } catch (err: unknown) {
+      console.error(err);
+      alert(getApiErrorMessage(err, 'Failed to delete staff member'));
     }
   };
 

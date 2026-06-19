@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Building, ShieldCheck, User, ShieldAlert, CheckCircle2, AlertCircle, Plus, X, Mail, Lock, Phone, MapPin } from 'lucide-react';
 import { api } from '../../api/axios';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 interface Clinic {
   id: string;
@@ -61,8 +62,9 @@ export default function Clinics() {
         adminPhone: '',
       });
       fetchClinics();
-    } catch (err: any) {
-      setRegisterError(err.response?.data?.error || 'Failed to register clinic.');
+    } catch (err: unknown) {
+      console.error(err);
+      setRegisterError(getApiErrorMessage(err, 'Failed to register clinic.'));
     } finally {
       setRegisterLoading(false);
     }
@@ -73,9 +75,10 @@ export default function Clinics() {
       setLoading(true);
       setError(null);
       const response = await api.get('/clinics');
-      setClinics(response.data);
-    } catch (err: any) {
-      setError('Failed to fetch clinics. Make sure you are logged in as a Super Admin.');
+      setClinics(response?.data || []);
+    } catch (err: unknown) {
+      console.error(err);
+      setError(getApiErrorMessage(err, 'Failed to fetch clinics. Make sure you are logged in as a Super Admin.'));
     } finally {
       setLoading(false);
     }
@@ -88,8 +91,9 @@ export default function Clinics() {
     try {
       await api.post(`/clinics/${id}/toggle-status`, { suspend: !currentlySuspended });
       fetchClinics();
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to update clinic status');
+    } catch (err: unknown) {
+      console.error(err);
+      alert(getApiErrorMessage(err, 'Failed to update clinic status'));
     }
   };
 

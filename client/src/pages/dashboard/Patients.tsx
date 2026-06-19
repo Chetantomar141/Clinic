@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Plus, X, Search, Calendar, Eye, Trash2, ShieldCheck, AlertCircle } from 'lucide-react';
 import { api } from '../../api/axios';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 interface Patient {
   id: string;
@@ -60,9 +61,10 @@ export default function Patients() {
       setLoading(true);
       setError(null);
       const { data } = await api.get(`/patients?q=${searchQuery}`);
-      setPatients(data);
-    } catch (err: any) {
-      setError('Failed to fetch patient directory.');
+      setPatients(data || []);
+    } catch (err: unknown) {
+      console.error(err);
+      setError(getApiErrorMessage(err, 'Failed to fetch patient directory.'));
     } finally {
       setLoading(false);
     }
@@ -89,8 +91,9 @@ export default function Patients() {
         email: '',
       });
       fetchPatients();
-    } catch (err: any) {
-      setModalError(err.response?.data?.error || 'Failed to register patient record.');
+    } catch (err: unknown) {
+      console.error(err);
+      setModalError(getApiErrorMessage(err, 'Failed to register patient record.'));
     } finally {
       setSubmitLoading(false);
     }
@@ -103,9 +106,10 @@ export default function Patients() {
       setDrawerOpen(true);
       
       const { data } = await api.get(`/patients/${patient.id}`);
-      setPatientTimeline(data.timeline);
-    } catch (err: any) {
-      alert('Failed to retrieve patient historical timeline');
+      setPatientTimeline(data?.timeline || []);
+    } catch (err: unknown) {
+      console.error(err);
+      alert(getApiErrorMessage(err, 'Failed to retrieve patient historical timeline'));
       setDrawerOpen(false);
     } finally {
       setDrawerLoading(false);
@@ -122,8 +126,9 @@ export default function Patients() {
       if (selectedPatient?.id === id) {
         setDrawerOpen(false);
       }
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to soft delete patient.');
+    } catch (err: unknown) {
+      console.error(err);
+      alert(getApiErrorMessage(err, 'Failed to soft delete patient.'));
     }
   };
 

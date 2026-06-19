@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Search, AlertTriangle, Calendar, Info } from 'lucide-react';
 import { api } from '../../api/axios';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 interface VerificationLog {
   id: string;
@@ -33,9 +34,10 @@ export default function VerificationLogs() {
       setError(null);
       
       const { data } = await api.get(`/analytics/verification-logs?q=${searchQuery}&result=${resultFilter}`);
-      setLogs(data);
-    } catch (err: any) {
-      setError('Failed to fetch verification audit log trail.');
+      setLogs(data || []);
+    } catch (err: unknown) {
+      console.error(err);
+      setError(getApiErrorMessage(err, 'Failed to fetch verification audit log trail.'));
     } finally {
       setLoading(false);
     }

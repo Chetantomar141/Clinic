@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../api/axios';
 import { useAuthStore } from '../../store/authStore';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 interface Certificate {
   id: string;
@@ -103,9 +104,10 @@ export default function Certificates() {
       setLoading(true);
       setError(null);
       const { data } = await api.get(`/certificates?q=${searchQuery}`);
-      setCertificates(data);
-    } catch (err: any) {
-      setError('Failed to fetch certificate database catalog.');
+      setCertificates(data || []);
+    } catch (err: unknown) {
+      console.error(err);
+      setError(getApiErrorMessage(err, 'Failed to fetch certificate database catalog.'));
     } finally {
       setLoading(false);
     }
@@ -117,19 +119,19 @@ export default function Certificates() {
         api.get('/patients'),
         user?.role === 'CLINIC_ADMIN' ? api.get('/doctors') : Promise.resolve({ data: [] })
       ]);
-      setPatients(patRes.data);
-      setDoctors(docRes.data);
+      setPatients(patRes?.data || []);
+      setDoctors(docRes?.data || []);
       
       // Auto-select first patient if available
-      if (patRes.data.length > 0) {
+      if ((patRes?.data || []).length > 0) {
         setFormData(prev => ({ ...prev, patientId: patRes.data[0].id }));
       }
       // Auto-select first doctor if available and CLINIC_ADMIN
-      if (docRes.data.length > 0) {
+      if ((docRes?.data || []).length > 0) {
         setFormData(prev => ({ ...prev, doctorId: docRes.data[0].id }));
       }
-    } catch (err: any) {
-      console.error('Failed to load modal drop-downs');
+    } catch (err: unknown) {
+      console.error('Failed to load modal drop-downs', err);
     }
   };
 
@@ -155,8 +157,9 @@ export default function Certificates() {
         remarks: '',
       });
       fetchCertificates();
-    } catch (err: any) {
-      setModalError(err.response?.data?.error || 'Failed to generate medical certificate.');
+    } catch (err: unknown) {
+      console.error(err);
+      setModalError(getApiErrorMessage(err, 'Failed to generate medical certificate.'));
     } finally {
       setSubmitLoading(false);
     }
@@ -178,8 +181,9 @@ export default function Certificates() {
       setRevokeOpen(false);
       setSelectedCert(null);
       fetchCertificates();
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to revoke certificate');
+    } catch (err: unknown) {
+      console.error(err);
+      alert(getApiErrorMessage(err, 'Failed to revoke certificate'));
     } finally {
       setRevokeLoading(false);
     }
@@ -204,8 +208,9 @@ export default function Certificates() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to download certificate PDF.');
+    } catch (err: unknown) {
+      console.error(err);
+      alert(getApiErrorMessage(err, 'Failed to download certificate PDF.'));
     }
   };
 

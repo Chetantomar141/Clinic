@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { api } from '../../api/axios';
+import { getApiErrorMessage } from '../../utils/apiError';
 import { useAuthStore } from '../../store/authStore';
 import gsap from 'gsap';
 
@@ -39,18 +40,25 @@ export default function Login() {
       setLoading(true);
       setError(null);
 
-      const { data } = await api.post('/auth/login', {
+      const response = await api.post('/auth/login', {
         email: email.trim(),
         password,
       });
+
+      if (!response?.data?.user || !response.data.accessToken || !response.data.refreshToken) {
+        throw new Error('Invalid response from authentication service.');
+      }
+
+      const { data } = response;
 
       // Save to Zustand and LocalStorage
       setAuth(data.user, data.accessToken, data.refreshToken);
 
       // Redirect to dashboard overview
       navigate('/dashboard/overview');
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Invalid credentials. Please try again.');
+    } catch (err: unknown) {
+      console.error(err);
+      setError(getApiErrorMessage(err, 'Login failed'));
     } finally {
       setLoading(false);
     }

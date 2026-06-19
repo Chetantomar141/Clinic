@@ -30,8 +30,15 @@ validateCloudinaryConfig();
 app.use(helmet({
   crossOriginResourcePolicy: false,
 }));
+
+const allowedOrigins = [
+  'https://healthcare-verification.vercel.app',
+  config.clientUrl,
+  'http://localhost:5173',
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: allowedOrigins,
   credentials: true,
 }));
 app.use(express.json());

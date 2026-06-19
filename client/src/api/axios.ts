@@ -1,10 +1,24 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
-const API_BASE = '/api';
+const normalizeApiUrl = (url: string | undefined) => url?.trim().replace(/\/+$/, '') || '';
+
+export const API_BASE_URL = normalizeApiUrl(import.meta.env.VITE_API_URL);
+export const API_CONFIG_ERROR = !API_BASE_URL
+  ? 'Missing VITE_API_URL. Configure it to the Render backend API URL before using the application.'
+  : API_BASE_URL.includes('healthcare-verification.vercel.app/api')
+    ? 'Invalid VITE_API_URL. API requests must target the Render backend, not the Vercel frontend.'
+    : null;
 
 export const api = axios.create({
-  baseURL: API_BASE,
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+const refreshApi = axios.create({
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -13,6 +27,10 @@ export const api = axios.create({
 // Request interceptor to append authorization token
 api.interceptors.request.use(
   (config) => {
+    if (API_CONFIG_ERROR) {
+      return Promise.reject(new Error(API_CONFIG_ERROR));
+    }
+
     const accessToken = useAuthStore.getState().accessToken;
     if (accessToken && config.headers) {
       config.headers.Authorization = `Bearer ${accessToken}`;
@@ -65,9 +83,17 @@ api.interceptors.response.use(
       }
 
       try {
-        const { data } = await axios.post(`${API_BASE}/auth/refresh`, {
+        if (API_CONFIG_ERROR) {
+          throw new Error(API_CONFIG_ERROR);
+        }
+
+        const { data } = await refreshApi.post('/auth/refresh', {
           refreshToken,
         });
+
+        if (!data?.accessToken) {
+          throw new Error('Invalid refresh response from authentication service.');
+        }
 
         const newAccessToken = data.accessToken;
         useAuthStore.getState().setAccessToken(newAccessToken);
