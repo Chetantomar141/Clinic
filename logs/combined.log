@@ -1044,3 +1044,6 @@
 {"level":"info","message":"[Certificate Pipeline] Step 5: Generating QR Code","service":"healthcare-verification-service","timestamp":"2026-06-18 16:55:27"}
 {"level":"info","message":"[Certificate Pipeline] Step 6: Generating PDF","service":"healthcare-verification-service","timestamp":"2026-06-18 16:55:27"}
 {"level":"info","message":"[Certificate Pipeline] Step 7: PDF ready for email attachment at C:\\Users\\Lenovo\\AppData\\Local\\Temp\\healthverify-certificate-84054fc1-df40-4c0f-8b14-c7a196a234d2.pdf","service":"healthcare-verification-service","timestamp":"2026-06-18 16:55:29"}
+{"level":"info","message":"[Cloudinary] credentials loaded: cloudName=true, apiKey=true, apiSecret=true, required=true","service":"healthcare-verification-service","timestamp":"2026-06-18 16:57:03"}
+{"level":"info","message":"Healthcare Platform API running in [development] mode on port 4000","service":"healthcare-verification-service","timestamp":"2026-06-18 16:57:03"}
+{"level":"info","message":"Swagger API documentation available at http://localhost:4000/api/docs","service":"healthcare-verification-service","timestamp":"2026-06-18 16:57:03"}
