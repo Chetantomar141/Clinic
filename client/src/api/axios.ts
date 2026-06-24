@@ -1,7 +1,14 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
-const normalizeApiUrl = (url: string | undefined) => url?.trim().replace(/\/+$/, '') || '';
+const normalizeApiUrl = (url: string | undefined) => {
+  if (!url) return '';
+  let trimmed = url.trim().replace(/\/+$/, '');
+  if (trimmed && !trimmed.endsWith('/api')) {
+    trimmed += '/api';
+  }
+  return trimmed;
+};
 
 export const API_BASE_URL = normalizeApiUrl(import.meta.env.VITE_API_URL);
 export const API_CONFIG_ERROR = !API_BASE_URL
