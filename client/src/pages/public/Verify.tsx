@@ -403,12 +403,7 @@ export default function Verify() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="bg-slate-100 border-t border-slate-200 py-6 px-6 text-center text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div>© 2010 Dr Katherine Lee Clinic. All rights reserved. Sim Lim Square, Singapore.</div>
-        </div>
-      </footer>
+  
     </div>
   );
 }
