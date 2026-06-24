@@ -22,19 +22,11 @@ const main = async () => {
 
   const passwordHash = await bcrypt.hash('Password123!', 12);
 
-  const superAdmin = await User.create({
-    email: 'superadmin@healthverify.sg',
-    passwordHash,
-    firstName: 'System',
-    lastName: 'Admin',
-    role: 'SUPER_ADMIN',
-  });
-
   const clinic = await Clinic.create({
-    name: 'Mount Elizabeth HealthVerify Clinic',
-    email: 'info@mountelizabeth.example',
-    contactNumber: '+65 6789 0123',
-    address: '3 Mount Elizabeth, Singapore',
+    name: 'LEE CARE CLINIC',
+    email: 'info@leecareclinic.sg',
+    contactNumber: '80615849',
+    address: 'Sim Lim Square #02-74, 1 Rochor Canal Rd, Singapore 188504',
   });
 
   const startDate = new Date();
@@ -62,8 +54,8 @@ const main = async () => {
   const doctorUser = await User.create({
     email: 'doctor@clinic.example',
     passwordHash,
-    firstName: 'Benjamin',
-    lastName: 'Tan',
+    firstName: 'Katherine',
+    lastName: 'Lee',
     phone: '+65 9222 3333',
     role: 'DOCTOR',
     clinicId: clinic._id,
@@ -72,8 +64,8 @@ const main = async () => {
   const doctor = await Doctor.create({
     clinicId: clinic._id,
     userId: doctorUser._id,
-    licenseNumber: 'MCR-12345',
-    specialization: 'General Medicine',
+    licenseNumber: 'M66656',
+    specialization: 'General Practitioner',
   });
 
   const staffUser = await User.create({
@@ -116,7 +108,7 @@ const main = async () => {
   const certStart = new Date();
   const certEnd = new Date();
   certEnd.setDate(certEnd.getDate() + 2);
-  const certificateNumber = `MC-${issueDate.getFullYear()}-000001`;
+  const certificateNumber = '415785';
 
   const certificate = await Certificate.create({
     clinicId: clinic._id,
@@ -136,7 +128,7 @@ const main = async () => {
   });
 
   await AuditLog.create({
-    userId: superAdmin._id,
+    userId: clinicAdmin._id,
     clinicId: clinic._id,
     action: 'SEED',
     targetType: 'DATABASE',
@@ -146,7 +138,6 @@ const main = async () => {
   });
 
   console.log('MongoDB seed completed.');
-  console.log('Super Admin: superadmin@healthverify.sg / Password123!');
   console.log('Clinic Admin: admin@clinic.example / Password123!');
   console.log('Doctor: doctor@clinic.example / Password123!');
   console.log('Staff: staff@clinic.example / Password123!');

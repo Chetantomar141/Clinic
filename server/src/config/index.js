@@ -26,7 +26,7 @@ export const config = {
   jwtRefreshSecret: process.env.JWT_REFRESH_SECRET,
   jwtAccessExpiry: process.env.JWT_ACCESS_EXPIRY || '15m',
   jwtRefreshExpiry: process.env.JWT_REFRESH_EXPIRY || '7d',
-  
+
   // Nodemailer config
   smtp: {
     host: process.env.SMTP_HOST || 'smtp.mailtrap.io',
@@ -37,12 +37,12 @@ export const config = {
     },
     from: process.env.SMTP_FROM || 'HealthVerify <noreply@healthverify.com>',
   },
-  
+
   // Puppeteer settings
   puppeteerExecutablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-  
+
   // Secret key for SHA-256 certificate hashing
-  verificationSecret: process.env.VERIFICATION_SECRET || 'supersecretmedicalverificationkey2026',
+  verificationSecret: process.env.VERIFICATION_SECRET || 'supersecretmedicalverificationkey2010',
 
   // Resend API key
   resendApiKey: process.env.RESEND_API_KEY || '',
@@ -53,7 +53,7 @@ export const config = {
     apiSecret: process.env.CLOUDINARY_API_SECRET || '',
     required: process.env.CLOUDINARY_REQUIRED !== 'false',
   },
-  
+
   // Base URLs
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
   serverUrl: process.env.SERVER_URL || 'http://localhost:4000',

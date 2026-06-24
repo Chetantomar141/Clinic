@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import gsap from 'gsap';
-import { 
-  ShieldCheck, 
-  CheckCircle2, 
-  AlertTriangle, 
-  XCircle, 
-  Download, 
-  Search, 
-  ChevronRight, 
+import {
+  ShieldCheck,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+  Download,
+  Search,
+  ChevronRight,
   Building,
   User,
   Calendar,
@@ -23,6 +23,9 @@ interface VerificationResult {
   certificateNumber: string;
   status: 'ACTIVE' | 'EXPIRED' | 'REVOKED' | 'CANCELLED';
   clinicName: string;
+  clinicAddress?: string | null;
+  clinicPhone?: string | null;
+  clinicEmail?: string | null;
   doctorName: string;
   patientName: string;
   patientIdentifier: string;
@@ -39,10 +42,10 @@ interface VerificationResult {
 
 export default function Verify() {
   const { certNo } = useParams<{ certNo?: string }>();
-  
+
   const [certificateNumber, setCertificateNumber] = useState(certNo || '');
   const [identifier, setIdentifier] = useState('');
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<VerificationResult | null>(null);
@@ -52,22 +55,17 @@ export default function Verify() {
   useEffect(() => {
     const ctx = gsap.context(() => {
       if (result) {
-        gsap.from('.gsap-verify-results', {
-          opacity: 0,
-          y: 30,
-          duration: 0.8,
-          ease: 'power3.out'
-        });
-        gsap.from('.gsap-result-item', {
-          opacity: 0,
-          x: -15,
-          duration: 0.5,
-          stagger: 0.08,
-          ease: 'power2.out'
-        });
+        gsap.fromTo('.gsap-verify-results',
+          { opacity: 0, y: 30 },
+          { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' }
+        );
+        gsap.fromTo('.gsap-result-item',
+          { opacity: 0, x: -15 },
+          { opacity: 1, x: 0, duration: 0.5, stagger: 0.08, ease: 'power2.out' }
+        );
       } else {
-        gsap.from('.gsap-verify-title', { opacity: 0, y: -20, duration: 0.8, ease: 'power3.out' });
-        gsap.from('.gsap-verify-card', { opacity: 0, y: 30, duration: 1, ease: 'power3.out' });
+        gsap.fromTo('.gsap-verify-title', { opacity: 0, y: -20 }, { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' });
+        gsap.fromTo('.gsap-verify-card', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 1, ease: 'power3.out' });
       }
     }, containerRef);
 
@@ -86,39 +84,15 @@ export default function Verify() {
   const [existenceClinic, setExistenceClinic] = useState<string | null>(null);
   const [checkingExistence, setCheckingExistence] = useState(false);
 
-  const checkExistence = async (num: string) => {
-    try {
-      setCheckingExistence(true);
-      setError(null);
-      const { data } = await api.get(`/verify/${num}`);
-      if (!data?.clinicName) {
-        throw new Error('Invalid response from verification service.');
-      }
-      setExistenceClinic(data.clinicName);
-    } catch (err: unknown) {
-      console.error(err);
-      setError(getApiErrorMessage(err, 'Certificate not found in database.'));
-      setExistenceClinic(null);
-    } finally {
-      setCheckingExistence(false);
-    }
-  };
-
-  const handleVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!certificateNumber || !identifier) {
-      setError('Please fill in both fields.');
-      return;
-    }
-
+  const performVerification = async (certNum: string, ident: string) => {
     try {
       setLoading(true);
       setError(null);
       setResult(null);
 
       const { data } = await api.post('/verify', {
-        certificateNumber: certificateNumber.trim(),
-        identifier: identifier.trim(),
+        certificateNumber: certNum.trim(),
+        identifier: ident.trim(),
       });
 
       if (!data) {
@@ -132,6 +106,36 @@ export default function Verify() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const checkExistence = async (num: string) => {
+    try {
+      setCheckingExistence(true);
+      setError(null);
+      const { data } = await api.get(`/verify/${num}`);
+      if (!data?.clinicName) {
+        throw new Error('Invalid response from verification service.');
+      }
+      setExistenceClinic(data.clinicName);
+      if (data.patientIdentifier) {
+        setIdentifier(data.patientIdentifier);
+      }
+    } catch (err: unknown) {
+      console.error(err);
+      setError(getApiErrorMessage(err, 'Certificate not found in database.'));
+      setExistenceClinic(null);
+    } finally {
+      setCheckingExistence(false);
+    }
+  };
+
+  const handleVerify = async (e?: React.SyntheticEvent) => {
+    if (e) e.preventDefault();
+    if (!certificateNumber || !identifier) {
+      setError('Please fill in both fields.');
+      return;
+    }
+    await performVerification(certificateNumber, identifier);
   };
 
   const resetForm = () => {
@@ -149,13 +153,7 @@ export default function Verify() {
       <header className="bg-white border-b border-slate-200 py-6 px-6">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-primary to-secondary flex items-center justify-center text-white font-bold text-sm">
-              HV
-            </div>
-            <span className="font-extrabold text-lg text-slate-900 font-sans">Health<span className="text-primary">Verify</span></span>
-          </Link>
-          <Link to="/login" className="text-sm font-semibold text-slate-600 hover:text-primary transition">
-            Sign In to Dashboard
+            <img src="/logo.png" alt="Lee Care Clinic Logo" className="h-11 w-auto object-contain" />
           </Link>
         </div>
       </header>
@@ -175,14 +173,14 @@ export default function Verify() {
           {!result ? (
             /* Verification Request Form */
             <div className="gsap-verify-card bg-white border border-slate-200 rounded-3xl p-8 shadow-xl relative overflow-hidden border-t-4 border-t-primary">
-              
-              <form onSubmit={handleVerify} className="space-y-6">
+
+              <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
                 {checkingExistence && (
                   <div className="bg-slate-50 border border-slate-200 text-slate-500 text-xs px-4 py-2 rounded-xl">
                     Querying document catalog...
                   </div>
                 )}
-                
+
                 {existenceClinic && (
                   <div className="bg-primary/5 border border-primary/20 text-primary-dark text-xs px-4 py-3 rounded-xl flex items-center gap-2">
                     <Building className="w-4 h-4 text-primary shrink-0" />
@@ -202,14 +200,24 @@ export default function Verify() {
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Certificate Number</label>
                     <div className="relative">
                       <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                      <input 
+                      <input
                         type="text"
                         required
                         disabled={!!certNo}
-                        value={certificateNumber}
-                        onChange={(e) => setCertificateNumber(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCertificateNumber(val);
+                          if (!certNo && val.trim().length >= 6) {
+                            checkExistence(val.trim());
+                          }
+                        }}
                         onBlur={() => !certNo && certificateNumber && checkExistence(certificateNumber)}
-                        placeholder="e.g. MC-2026-000001"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                          }
+                        }}
+                        placeholder=""
                         className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-4 py-3.5 outline-none focus:bg-white focus:border-primary text-sm font-semibold transition"
                       />
                     </div>
@@ -217,12 +225,17 @@ export default function Verify() {
 
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Passport / NRIC Number</label>
-                    <input 
+                    <input
                       type="text"
                       required
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
-                      placeholder="e.g. S1234567A"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                        }
+                      }}
+                      placeholder=""
                       className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 outline-none focus:bg-white focus:border-primary text-sm font-semibold transition"
                     />
                   </div>
@@ -235,8 +248,9 @@ export default function Verify() {
                   </p>
                 </div>
 
-                <button 
-                  type="submit" 
+                <button
+                  type="button"
+                  onClick={handleVerify}
                   disabled={loading}
                   className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-4 rounded-2xl transition shadow-lg shadow-primary/20 flex items-center justify-center gap-2 cursor-pointer"
                 >
@@ -245,178 +259,151 @@ export default function Verify() {
               </form>
             </div>
           ) : (
-            /* Verification Successful Results Screen */
-            <div className="gsap-verify-results bg-white border border-slate-200 rounded-3xl shadow-2xl relative overflow-hidden">
-              {/* Badge Headers depending on status */}
-              {result.status === 'ACTIVE' && (
-                <div className="bg-emerald-500 text-white px-8 py-5 flex items-center justify-between shadow-inner">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                      <CheckCircle2 className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-extrabold text-lg uppercase tracking-wider">Authenticity Verified</h3>
-                      <p className="text-emerald-100 text-xs">This certificate is genuine and active in the registry.</p>
-                    </div>
-                  </div>
-                  <div className="border border-white/30 rounded px-3 py-1 text-xs font-black bg-white/10 uppercase tracking-widest glow-green">
-                    VALID
-                  </div>
-                </div>
-              )}
+            /* Verification Successful Results Screen - HealthLight Style */
+            <div className="gsap-verify-results bg-white border border-slate-200 rounded-3xl shadow-xl relative overflow-hidden max-w-xl mx-auto p-8 font-sans border-t-8 border-t-primary">
 
-              {result.status === 'EXPIRED' && (
-                <div className="bg-amber-500 text-white px-8 py-5 flex items-center justify-between shadow-inner">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                      <Clock className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-extrabold text-lg uppercase tracking-wider">Validity Period Expired</h3>
-                      <p className="text-amber-100 text-xs">This certificate is genuine but the leave period has elapsed.</p>
-                    </div>
-                  </div>
-                  <div className="border border-white/30 rounded px-3 py-1 text-xs font-black bg-white/10 uppercase tracking-widest">
-                    EXPIRED
-                  </div>
-                </div>
-              )}
-
-              {result.status === 'REVOKED' && (
-                <div className="bg-red-600 text-white px-8 py-5 flex items-center justify-between shadow-inner">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                      <XCircle className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-extrabold text-lg uppercase tracking-wider">Certificate Revoked</h3>
-                      <p className="text-red-100 text-xs">This document was revoked by the issuing clinic and is invalid.</p>
-                    </div>
-                  </div>
-                  <div className="border border-white/30 rounded px-3 py-1 text-xs font-black bg-white/10 uppercase tracking-widest glow-red">
-                    REVOKED
-                  </div>
-                </div>
-              )}
-
-              {result.status === 'CANCELLED' && (
-                <div className="bg-slate-600 text-white px-8 py-5 flex items-center justify-between shadow-inner">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                      <XCircle className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-extrabold text-lg uppercase tracking-wider">Certificate Cancelled</h3>
-                      <p className="text-slate-100 text-xs">This document has been cancelled and is no longer active.</p>
-                    </div>
-                  </div>
-                  <div className="border border-white/30 rounded px-3 py-1 text-xs font-black bg-white/10 uppercase tracking-widest">
-                    CANCELLED
-                  </div>
-                </div>
-              )}
-
-              {/* Data Rows */}
-              <div className="p-8 space-y-6">
-                <div className="grid md:grid-cols-2 gap-6 pb-6 border-b border-slate-100">
-                  <div className="gsap-result-item flex items-start gap-3">
-                    <User className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Patient Name</span>
-                      <span className="text-md font-bold text-slate-900">{result.patientName}</span>
-                    </div>
-                  </div>
-
-                  <div className="gsap-result-item flex items-start gap-3">
-                    <Building className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Issuing Clinic</span>
-                      <span className="text-md font-bold text-slate-900">{result.clinicName}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="gsap-result-item flex items-start gap-3">
-                    <Fingerprint className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">NRIC / Passport</span>
-                      <span className="text-md font-bold text-slate-900">{result.patientIdentifier}</span>
-                    </div>
-                  </div>
-
-                  <div className="gsap-result-item flex items-start gap-3">
-                    <User className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Attending Doctor</span>
-                      <span className="text-md font-bold text-slate-900">{result.doctorName}</span>
-                    </div>
-                  </div>
+              {/* Header: Clinic Details & Seal */}
+              <div className="flex justify-between items-start border-b border-slate-100 pb-6 mb-6">
+                <div className="space-y-1 text-left">
+                  <h2 className="text-xl font-extrabold text-slate-900 leading-tight">
+                    {result.clinicName}
+                  </h2>
+                  <p className="text-xs text-slate-500 font-semibold leading-relaxed whitespace-pre-line">
+                    {(result.clinicAddress || 'Sim Lim Square #02-74, 1 Rochor Canal Rd, Singapore 188504').replace(', ', '\n')}
+                  </p>
                 </div>
 
-                <div className="gsap-result-item grid md:grid-cols-3 gap-6 bg-slate-50 rounded-2xl p-6 border border-slate-200">
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Validity Start Date</span>
-                    <span className="text-sm font-semibold text-slate-800">
-                      {new Date(result.startDate).toLocaleDateString('en-SG', { day: 'numeric', month: 'long', year: 'numeric' })}
-                    </span>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Validity End Date</span>
-                    <span className="text-sm font-semibold text-slate-800">
-                      {new Date(result.endDate).toLocaleDateString('en-SG', { day: 'numeric', month: 'long', year: 'numeric' })}
-                    </span>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Duration Days</span>
-                    <span className="text-sm font-extrabold text-primary">
-                      {result.durationDays} Day(s)
-                    </span>
-                  </div>
-                </div>
+                {/* Dynamic Approval Seal */}
+                <div className="shrink-0 ml-4">
+                  {(() => {
+                    let sealColor = '#2563eb'; // blue for active/valid
+                    let sealText = 'VALID';
 
-                <div className="gsap-result-item space-y-1.5 font-mono text-[9px] text-slate-400 bg-slate-50 border border-slate-200 p-4 rounded-xl break-all">
-                  <span className="font-bold text-slate-500 block uppercase tracking-wider mb-1">SHA-256 Cryptographic Signature</span>
-                  {result.verificationHash}
-                </div>
+                    if (result.status === 'REVOKED') {
+                      sealColor = '#dc2626'; // red
+                      sealText = 'REVOKED';
+                    } else if (result.status === 'EXPIRED') {
+                      sealColor = '#f59e0b'; // amber
+                      sealText = 'EXPIRED';
+                    } else if (result.status === 'CANCELLED') {
+                      sealColor = '#475569'; // grey
+                      sealText = 'CANCEL';
+                    }
 
-                {(result.qrUrl || result.clinicLogoUrl || result.doctorSignatureUrl) && (
-                  <div className="gsap-result-item grid sm:grid-cols-3 gap-4">
-                    {result.qrUrl && (
-                      <div className="border border-slate-200 rounded-xl p-4 bg-white flex items-center justify-center min-h-32">
-                        <img src={result.qrUrl} alt="Certificate QR code" className="max-h-24 object-contain" />
-                      </div>
-                    )}
-                    {result.clinicLogoUrl && (
-                      <div className="border border-slate-200 rounded-xl p-4 bg-white flex items-center justify-center min-h-32">
-                        <img src={result.clinicLogoUrl} alt="Clinic logo" className="max-h-20 object-contain" />
-                      </div>
-                    )}
-                    {result.doctorSignatureUrl && (
-                      <div className="border border-slate-200 rounded-xl p-4 bg-white flex items-center justify-center min-h-32">
-                        <img src={result.doctorSignatureUrl} alt="Doctor signature" className="max-h-20 object-contain" />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="gsap-result-item flex flex-col sm:flex-row gap-4 pt-4">
-                  {result.pdfUrl && (
-                    <a 
-                      href={result.pdfUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 bg-primary hover:bg-primary-dark text-white font-bold py-3.5 rounded-xl transition shadow-md shadow-primary/20 flex items-center justify-center gap-2"
-                    >
-                      <Download className="w-5 h-5" /> Download Digital Certificate (PDF)
-                    </a>
-                  )}
-                  <button 
-                    onClick={resetForm}
-                    className="sm:w-48 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3.5 rounded-xl border border-slate-300 transition"
-                  >
-                    Verify Another
-                  </button>
+                    return (
+                      <svg width="76" height="76" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="50" cy="50" r="44" stroke={sealColor} strokeWidth="2" strokeDasharray="2 2" />
+                        <circle cx="50" cy="50" r="40" stroke={sealColor} strokeWidth="1.5" />
+                        <circle cx="50" cy="50" r="32" stroke={sealColor} strokeWidth="1.5" />
+                        <g transform="rotate(-15 50 50)">
+                          <rect x="12" y="38" width="76" height="24" rx="2" fill={sealColor} />
+                          <text x="50" y="55" fill="#ffffff" fontFamily="Arial, Helvetica, sans-serif" fontSize={sealText.length > 5 ? '10' : '13'} fontWeight="900" textAnchor="middle" letterSpacing="1">{sealText}</text>
+                        </g>
+                        <path id="sealPath" d="M 18 50 A 32 32 0 1 1 82 50" fill="none" />
+                        <text fontFamily="Arial" fontSize="6" fontWeight="bold" fill={sealColor} letterSpacing="0.5">
+                          <textPath href="#sealPath" startOffset="50%" textAnchor="middle">
+                            APPROVAL SEAL
+                          </textPath>
+                        </text>
+                        <path id="sealPathBottom" d="M 82 50 A 32 32 0 1 1 18 50" fill="none" />
+                        <text fontFamily="Arial" fontSize="6" fontWeight="bold" fill={sealColor} letterSpacing="0.5">
+                          <textPath href="#sealPathBottom" startOffset="50%" text-anchor="middle">
+                            APPROVAL SEAL
+                          </textPath>
+                        </text>
+                      </svg>
+                    );
+                  })()}
                 </div>
               </div>
+
+              {/* Title Section */}
+              <div className="text-center mb-6 space-y-1">
+                <h1 className="text-2xl font-black text-slate-800 tracking-wide">
+                  MEDICAL CERTIFICATE
+                </h1>
+                <div className="text-slate-500 font-semibold text-sm">
+                  No: {result.certificateNumber}
+                </div>
+                <div className="text-slate-500 font-semibold text-sm">
+                  Issued date: {new Date(result.issueDate).toLocaleDateString('en-SG', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                </div>
+              </div>
+
+              {/* Patient and Leave Details */}
+              <div className="space-y-4 text-left border-b border-slate-100 pb-6 mb-6">
+                <div className="gsap-result-item">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Name</span>
+                  <span className="text-md font-extrabold text-slate-900">{result.patientName}</span>
+                </div>
+
+                <div className="gsap-result-item">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">NRIC/Passport number</span>
+                  <span className="text-md font-extrabold text-slate-900">{result.patientIdentifier}</span>
+                </div>
+
+                <div className="gsap-result-item">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Start Date</span>
+                  <span className="text-md font-extrabold text-slate-900">
+                    {new Date(result.startDate).toLocaleDateString('en-SG', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                  </span>
+                </div>
+
+                <div className="gsap-result-item">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">End Date</span>
+                  <span className="text-md font-extrabold text-slate-900">
+                    {new Date(result.endDate).toLocaleDateString('en-SG', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                  </span>
+                </div>
+
+                <div className="gsap-result-item">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Type of medical leave granted</span>
+                  <span className="text-md font-extrabold text-slate-900">Medical Certificate</span>
+                </div>
+              </div>
+
+              {/* Certification Statement */}
+              <div className="gsap-result-item text-left border-b border-slate-100 pb-6 mb-6 font-semibold text-slate-800 text-sm leading-relaxed">
+                This is to certify that the patient is unfit for duty for a period of <span className="font-black text-slate-950 underline decoration-slate-400 decoration-2 underline-offset-2">{result.durationDays}</span> day(s).
+              </div>
+
+              {/* Attending Doctor */}
+              <div className="gsap-result-item text-left border-b border-slate-100 pb-6 mb-6">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Issued by</span>
+                <span className="text-md font-extrabold text-slate-900">{result.doctorName}</span>
+              </div>
+
+              {/* Cryptographic Signature Box */}
+              <div className="gsap-result-item font-mono text-[9px] text-slate-400 bg-slate-50 border border-slate-150 p-3.5 rounded-2xl break-all text-left mb-6">
+                <span className="font-bold text-slate-500 block uppercase tracking-wider mb-1">SHA-256 Cryptographic Signature</span>
+                {result.verificationHash}
+              </div>
+
+              {/* Footer Disclaimer */}
+              <div className="gsap-result-item text-xs text-slate-500 italic font-semibold text-left mb-8 leading-relaxed">
+                This MC is not valid for Court Attendance or Police Report
+              </div>
+
+              {/* Download / Action Buttons */}
+              <div className="gsap-result-item flex flex-col sm:flex-row gap-4">
+                {result.pdfUrl && (
+                  <a
+                    href={result.pdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 bg-primary hover:bg-primary-dark text-white font-bold py-3.5 rounded-xl transition shadow-md shadow-primary/20 flex items-center justify-center gap-2"
+                  >
+                    <Download className="w-5 h-5" /> Download Digital Certificate (PDF)
+                  </a>
+                )}
+                <button
+                  onClick={resetForm}
+                  className="sm:w-48 bg-slate-50 hover:bg-slate-150 text-slate-700 font-bold py-3.5 rounded-xl border border-slate-200 transition"
+                >
+                  Verify Another
+                </button>
+              </div>
+
             </div>
           )}
         </div>
@@ -425,10 +412,10 @@ export default function Verify() {
       {/* Footer */}
       <footer className="bg-slate-100 border-t border-slate-200 py-6 px-6 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div>© 2026 HealthVerify. Secure Multi-Tenant Verification Gateway.</div>
+          <div>© 2010 Dr Katherine Lee Clinic. All rights reserved. Sim Lim Square, Singapore.</div>
           <div className="flex gap-4 font-semibold text-slate-600">
             <Link to="/" className="hover:text-primary">Landing Page</Link>
-            <Link to="/login" className="hover:text-primary">Sign In</Link>
+
           </div>
         </div>
       </footer>

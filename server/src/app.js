@@ -37,6 +37,7 @@ const allowedOrigins = [
   'https://healthcare-verification.vercel.app',
   config.clientUrl,
   'http://localhost:5173',
+  'http://localhost:5174',
 ].filter(Boolean);
 
 app.use(cors({

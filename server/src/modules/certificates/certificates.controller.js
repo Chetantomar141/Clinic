@@ -178,16 +178,21 @@ export class CertificatesController {
       const durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
       logger.info('[Certificate Pipeline] Step 4: Generating Certificate Number');
-      const year = new Date().getFullYear();
-      const lastCertificate = serialize(await Certificate.findOne({
-        certificateNumber: new RegExp(`^MC-${year}-`),
-      }).sort({ certificateNumber: -1 }).select('certificateNumber'));
+      const lastNumericCertificate = serialize(await Certificate.findOne({
+        certificateNumber: /^\d+$/
+      })
+      .collation({ locale: 'en', numericOrdering: true })
+      .sort({ certificateNumber: -1 })
+      .select('certificateNumber'));
 
-      const lastSequence = lastCertificate?.certificateNumber
-        ? Number.parseInt(lastCertificate.certificateNumber.split('-').at(-1), 10)
-        : 0;
-      const nextNum = String((Number.isFinite(lastSequence) ? lastSequence : 0) + 1).padStart(6, '0');
-      const certificateNumber = `MC-${year}-${nextNum}`;
+      let nextNumValue = 415785;
+      if (lastNumericCertificate) {
+        const lastNum = Number.parseInt(lastNumericCertificate.certificateNumber, 10);
+        if (!Number.isNaN(lastNum) && lastNum >= 415785) {
+          nextNumValue = lastNum + 1;
+        }
+      }
+      const certificateNumber = String(nextNumValue);
       const issueDate = new Date();
       const verificationHash = calculateCertificateHash(
         certificateNumber,

@@ -99,6 +99,9 @@ export class VerificationController {
         certificateNumber: certificate.certificateNumber,
         status, // ACTIVE, EXPIRED, REVOKED, CANCELLED
         clinicName: certificate.clinic.name,
+        clinicAddress: certificate.clinic.address,
+        clinicPhone: certificate.clinic.contactNumber,
+        clinicEmail: certificate.clinic.email,
         doctorName: `Dr. ${certificate.doctor.user.firstName} ${certificate.doctor.user.lastName}`,
         patientName: certificate.patient.fullName,
         patientIdentifier: certificate.patient.identifier,
@@ -128,7 +131,9 @@ export class VerificationController {
     try {
       const { certNo } = req.params;
 
-      const certificate = serialize(await Certificate.findOne({ certificateNumber: certNo }).populate('clinic'));
+      const certificate = serialize(await Certificate.findOne({ certificateNumber: certNo })
+        .populate('clinic')
+        .populate('patient'));
 
       if (!certificate || certificate.deletedAt) {
         return res.status(404).json({ error: 'Certificate not found' });
@@ -138,6 +143,7 @@ export class VerificationController {
         certificateNumber: certificate.certificateNumber,
         clinicName: certificate.clinic.name,
         requiresVerification: true,
+        patientIdentifier: certificate.patient.identifier,
       });
     } catch (error) {
       logger.error('Certificate check existence error:', error);

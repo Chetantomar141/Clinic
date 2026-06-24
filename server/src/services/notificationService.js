@@ -90,7 +90,7 @@ export class NotificationService {
           html: params.body,
           attachments: attachments,
         });
-        
+
         await Notification.findByIdAndUpdate(dbNotification.id, { status: 'SENT', sentAt: new Date() });
         logger.info(`Email successfully sent via SMTP to ${params.email} [${params.type}]`);
         return { success: true, provider: 'smtp', id: null };
@@ -142,7 +142,7 @@ export class NotificationService {
           <p style="color: #64748b; font-size: 12px;">If you did not request this certificate, please contact the clinic immediately.</p>
         </div>
         <div style="text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 30px; color: #94a3b8; font-size: 12px;">
-          <p>© 2026 HealthVerify SaaS. All rights reserved.</p>
+          <p>© 2010 HealthVerify SaaS. All rights reserved.</p>
         </div>
       </div>
     `;
@@ -170,7 +170,7 @@ export class NotificationService {
           <p>This certificate is no longer valid for verification. Any validation attempts will show a "Revoked" status.</p>
         </div>
         <div style="text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 30px; color: #94a3b8; font-size: 12px;">
-          <p>© 2026 HealthVerify SaaS. All rights reserved.</p>
+          <p>© 2010 HealthVerify SaaS. All rights reserved.</p>
         </div>
       </div>
     `;
@@ -198,7 +198,7 @@ export class NotificationService {
           <p style="color: #64748b; font-size: 12px;">If you didn't expect this invite, please ignore this email.</p>
         </div>
         <div style="text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 30px; color: #94a3b8; font-size: 12px;">
-          <p>© 2026 HealthVerify SaaS. All rights reserved.</p>
+          <p>© 2010 HealthVerify SaaS. All rights reserved.</p>
         </div>
       </div>
     `;
@@ -219,7 +219,7 @@ export class NotificationService {
           <p>This link will expire in 1 hour. If you did not make this request, you can safely ignore this email.</p>
         </div>
         <div style="text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 30px; color: #94a3b8; font-size: 12px;">
-          <p>© 2026 HealthVerify SaaS. All rights reserved.</p>
+          <p>© 2010 HealthVerify SaaS. All rights reserved.</p>
         </div>
       </div>
     `;

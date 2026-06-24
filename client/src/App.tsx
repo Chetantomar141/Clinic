@@ -3,9 +3,14 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 // Layouts
 import DashboardLayout from './layouts/DashboardLayout';
+import PublicLayout from './layouts/PublicLayout';
 
 // Public pages
-import LandingPage from './pages/public/LandingPage';
+import Home from './pages/public/Home';
+import AboutClinic from './pages/public/AboutClinic';
+import DoctorProfile from './pages/public/DoctorProfile';
+import TreatmentsServices from './pages/public/TreatmentsServices';
+import Contact from './pages/public/Contact';
 import Verify from './pages/public/Verify';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
@@ -31,7 +36,14 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         {/* Public routes */}
-        <Route path="/" element={<LandingPage />} />
+        <Route path="/" element={<PublicLayout />}>
+          <Route index element={<Home />} />
+          <Route path="about" element={<AboutClinic />} />
+          <Route path="doctor" element={<DoctorProfile />} />
+          <Route path="services" element={<TreatmentsServices />} />
+          <Route path="contact" element={<Contact />} />
+        </Route>
+
         <Route path="/verify" element={<Verify />} />
         <Route path="/verify/:certNo" element={<Verify />} />
         

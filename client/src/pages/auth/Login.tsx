@@ -19,11 +19,11 @@ export default function Login() {
 
   useEffect(() => {
     const ctx = gsap.context(() => {
-      gsap.from('.gsap-login-logo', { opacity: 0, y: -20, duration: 0.8, ease: 'power3.out' });
-      gsap.from('.gsap-login-title', { opacity: 0, y: 15, duration: 0.8, delay: 0.1, ease: 'power3.out' });
-      gsap.from('.gsap-login-card', { opacity: 0, y: 30, duration: 1, delay: 0.2, ease: 'power3.out' });
-      gsap.from('.gsap-login-input', { opacity: 0, x: -15, duration: 0.6, delay: 0.4, stagger: 0.1, ease: 'power2.out' });
-      gsap.from('.gsap-login-btn', { opacity: 0, y: 10, duration: 0.6, delay: 0.6, ease: 'power2.out' });
+      gsap.fromTo('.gsap-login-logo', { opacity: 0, y: -20 }, { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' });
+      gsap.fromTo('.gsap-login-title', { opacity: 0, y: 15 }, { opacity: 1, y: 0, duration: 0.8, delay: 0.1, ease: 'power3.out' });
+      gsap.fromTo('.gsap-login-card', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 1, delay: 0.2, ease: 'power3.out' });
+      gsap.fromTo('.gsap-login-input', { opacity: 0, x: -15 }, { opacity: 1, x: 0, duration: 0.6, delay: 0.4, stagger: 0.1, ease: 'power2.out' });
+      gsap.fromTo('.gsap-login-btn', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.6, delay: 0.6, ease: 'power2.out' });
     }, containerRef);
 
     return () => ctx.revert();
@@ -69,16 +69,13 @@ export default function Login() {
       <div className="w-full max-w-md space-y-8">
         
         {/* Logo */}
-        <div className="text-center space-y-2">
-          <Link to="/" className="gsap-login-logo inline-flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-secondary flex items-center justify-center text-white font-bold shadow-md">
-              HV
-            </div>
-            <span className="font-extrabold text-2xl text-slate-900 font-sans">Health<span className="text-primary">Verify</span></span>
+        <div className="text-center space-y-2 flex flex-col items-center">
+          <Link to="/" className="gsap-login-logo inline-block">
+            <img src="/logo.png" alt="Healthmark Logo" className="h-12 w-auto object-contain mx-auto" />
           </Link>
           <div className="gsap-login-title space-y-1">
-            <h2 className="text-xl font-bold text-slate-700">Welcome Back</h2>
-            <p className="text-slate-400 text-xs">Sign in to your clinical or administrative dashboard</p>
+            <h2 className="text-xl font-bold text-slate-700 mt-2">Doctor Portal</h2>
+            <p className="text-slate-400 text-xs">Sign in to your clinical dashboard</p>
           </div>
         </div>
 
@@ -142,9 +139,7 @@ export default function Login() {
             </div>
           </form>
 
-          <div className="mt-8 pt-6 border-t border-slate-100 text-center text-xs text-slate-500 space-y-2">
-            <div>Need to check a document? <Link to="/verify" className="text-secondary font-bold hover:underline flex items-center justify-center gap-1"><ShieldCheck className="w-3.5 h-3.5" /> Public Verifier Portal</Link></div>
-          </div>
+
         </div>
 
       </div>

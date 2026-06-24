@@ -34,8 +34,51 @@ export class PDFService {
 
       pdfPath = path.join(os.tmpdir(), `healthverify-certificate-${uuidv4()}.pdf`);
 
-      const logoPath = data.clinicLogoUrl || '';
-      const signaturePath = data.doctorSignatureUrl || '';
+      // Resolve logo path as base64 data URI
+      let logoDataUrl = '';
+      try {
+        const logoFilePath = path.resolve(process.cwd(), '../client/public/logo.png');
+        const logoBuffer = await fs.readFile(logoFilePath);
+        logoDataUrl = `data:image/png;base64,${logoBuffer.toString('base64')}`;
+      } catch (err) {
+        logger.warn(`Could not read clinic logo.png from disk: ${err.message}`);
+        logoDataUrl = data.clinicLogoUrl || '';
+      }
+
+      // Resolve signature path
+      let signaturePath = '';
+      try {
+        const signatureFilePath = path.resolve(process.cwd(), '../client/public/signature.png');
+        const signatureBuffer = await fs.readFile(signatureFilePath);
+        signaturePath = `data:image/png;base64,${signatureBuffer.toString('base64')}`;
+      } catch (err) {
+        logger.warn(`Could not read signature.png from disk: ${err.message}`);
+        signaturePath = data.doctorSignatureUrl || '';
+      }
+
+      const formatDate = (dateVal) => {
+        if (!dateVal) return '';
+        const d = new Date(dateVal);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}/${month}/${year}`;
+      };
+
+      const formatPatientDob = (dobVal) => {
+        if (!dobVal) return '';
+        try {
+          const d = new Date(dobVal);
+          return d.toLocaleDateString('en-SG', { day: 'numeric', month: 'long', year: 'numeric' });
+        } catch (e) {
+          return '';
+        }
+      };
+
+      const formatAddress = (addr) => {
+        if (!addr) return '';
+        return addr.replace(', ', '<br>');
+      };
 
       // 3. Compile HTML Template
       const htmlContent = `
@@ -45,290 +88,317 @@ export class PDFService {
           <meta charset="utf-8">
           <title>Medical Certificate - ${data.certificateNumber}</title>
           <style>
+            @page {
+              size: A4 portrait;
+              margin: 0;
+            }
             body {
               font-family: Arial, Helvetica, sans-serif;
-              color: #1e293b;
+              color: #000000;
               margin: 0;
               padding: 0;
               background-color: #ffffff;
+              -webkit-print-color-adjust: exact;
             }
             .certificate-container {
-              width: 100%;
-              max-width: 800px;
-              margin: 0 auto;
-              padding: 40px;
+              width: 210mm;
+              height: 297mm;
+              padding: 25mm 20mm;
               box-sizing: border-box;
-              border: 10px solid #f1f5f9;
               position: relative;
-            }
-            .border-accent {
-              position: absolute;
-              top: 0;
-              left: 0;
-              width: 100%;
-              height: 8px;
-              background: linear-gradient(90deg, #0F6FFF 0%, #00C896 100%);
-            }
-            .header {
+              background-color: #ffffff;
               display: flex;
-              justify-content: space-between;
-              align-items: flex-start;
-              border-bottom: 2px solid #e2e8f0;
-              padding-bottom: 20px;
-              margin-bottom: 30px;
+              flex-direction: column;
             }
-            .clinic-info {
-              max-width: 60%;
-            }
-            .clinic-name {
-              font-size: 22px;
-              font-weight: 700;
-              color: #0F6FFF;
-              margin: 0 0 5px 0;
-              text-transform: uppercase;
-            }
-            .clinic-details {
-              font-size: 12px;
-              color: #64748b;
-              line-height: 1.5;
-            }
-            .clinic-logo {
-              max-height: 60px;
-              max-width: 150px;
-              object-fit: contain;
-            }
-            .certificate-title-box {
+            .header-container {
               text-align: center;
-              margin-bottom: 30px;
-            }
-            .certificate-title {
-              font-size: 24px;
-              font-weight: 700;
-              letter-spacing: 1px;
-              color: #1e293b;
-              text-transform: uppercase;
-              margin: 0;
-            }
-            .cert-number {
-              font-size: 13px;
-              color: #64748b;
-              font-weight: 600;
-              margin-top: 5px;
-            }
-            .grid-container {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 20px;
-              margin-bottom: 30px;
-            }
-            .section-box {
-              background-color: #f8fafc;
-              border-radius: 8px;
-              padding: 15px;
-              border: 1px solid #e2e8f0;
-            }
-            .section-title {
-              font-size: 12px;
-              font-weight: 700;
-              color: #64748b;
-              text-transform: uppercase;
-              margin: 0 0 10px 0;
-              border-bottom: 1px solid #cbd5e1;
-              padding-bottom: 5px;
-            }
-            .field-row {
-              display: flex;
-              margin-bottom: 8px;
-              font-size: 13px;
-            }
-            .field-row:last-child {
-              margin-bottom: 0;
-            }
-            .field-label {
-              width: 120px;
-              font-weight: 600;
-              color: #64748b;
-            }
-            .field-value {
-              flex: 1;
-              color: #0f172a;
-            }
-            .diagnosis-box {
-              background-color: #f8fafc;
-              border-radius: 8px;
-              padding: 20px;
-              border: 1px solid #e2e8f0;
-              margin-bottom: 30px;
-            }
-            .diagnosis-title {
-              font-size: 13px;
-              font-weight: 700;
-              color: #64748b;
-              text-transform: uppercase;
-              margin-top: 0;
               margin-bottom: 10px;
             }
-            .diagnosis-text {
-              font-size: 15px;
-              line-height: 1.6;
-              color: #0f172a;
-              font-style: italic;
+            .clinic-logo {
+              width: 200px;
+              max-height: 80px;
+              object-fit: contain;
+              display: block;
+              margin: 0 auto 12px auto;
             }
-            .footer-section {
+            .clinic-name {
+              font-family: 'Times New Roman', Times, serif;
+              font-size: 26px;
+              font-weight: bold;
+              text-transform: uppercase;
+              color: #000000;
+              margin: 0 0 5px 0;
+              letter-spacing: 0.5px;
+            }
+            .clinic-address {
+              font-family: Arial, sans-serif;
+              font-size: 13px;
+              color: #333333;
+              line-height: 1.4;
+              margin: 0;
+            }
+            .divider-line {
+              border-bottom: 1px solid #0d9488;
+              margin-top: 15px;
+              margin-bottom: 25px;
+              width: 100%;
+            }
+            .title-section {
+              text-align: center;
+              margin-bottom: 30px;
+            }
+            .cert-title {
+              font-family: 'Times New Roman', Times, serif;
+              font-size: 38px;
+              font-weight: bold;
+              color: #000000;
+              margin: 0;
+              letter-spacing: 1px;
+            }
+            .cert-meta {
+              font-family: Arial, sans-serif;
+              font-size: 13px;
+              color: #333333;
+              margin-top: 10px;
+              line-height: 1.5;
+            }
+            .cert-no-highlight {
+              color: #0284c7;
+              font-weight: bold;
+            }
+            .details-container {
+              margin-top: 30px;
+              font-family: Arial, sans-serif;
+              font-size: 13px;
+              display: flex;
+              flex-direction: column;
+              gap: 12px;
+            }
+            .detail-row {
+              display: flex;
+            }
+            .detail-label {
+              width: 200px;
+              color: #333333;
+            }
+            .detail-value {
+              color: #000000;
+            }
+            .leave-row {
+              display: flex;
+              gap: 80px;
+              margin-top: 30px;
+              font-family: Arial, sans-serif;
+              font-size: 13px;
+              font-weight: bold;
+              color: #000000;
+            }
+            .leave-value {
+              font-weight: normal;
+              margin-left: 8px;
+            }
+            .cert-type-row {
+              margin-top: 15px;
+              font-family: Arial, sans-serif;
+              font-size: 13px;
+              font-weight: bold;
+              color: #000000;
+            }
+            .cert-type-value {
+              font-weight: normal;
+              margin-left: 8px;
+            }
+            .certification-text {
+              margin-top: 30px;
+              font-family: Arial, sans-serif;
+              font-size: 13px;
+              line-height: 1.6;
+              color: #000000;
+              text-align: left;
+            }
+            .footer-container {
               display: flex;
               justify-content: space-between;
-              align-items: flex-end;
-              margin-top: 40px;
-            }
-            .doctor-signature-box {
-              text-align: center;
-              max-width: 200px;
-            }
-            .signature-img {
-              max-height: 60px;
-              max-width: 160px;
-              margin-bottom: 5px;
-              display: block;
-            }
-            .doctor-name-sign {
-              font-size: 14px;
-              font-weight: 600;
-              border-top: 1px solid #cbd5e1;
-              padding-top: 5px;
-              margin-top: 5px;
-            }
-            .doctor-license-sign {
-              font-size: 11px;
-              color: #64748b;
-            }
-            .verification-qr-box {
-              display: flex;
               align-items: center;
-              gap: 15px;
-              max-width: 60%;
+              margin-top: auto;
+              padding-bottom: 20px;
+              font-family: Arial, sans-serif;
             }
-            .qr-code-img {
-              width: 90px;
-              height: 90px;
+            .footer-column {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
             }
-            .verification-text-box {
+            .stamp-column {
+              width: 33%;
+            }
+            .stamp-box {
+              color: #1d4ed8;
+              font-family: Arial, sans-serif;
               font-size: 11px;
-              color: #64748b;
               line-height: 1.4;
+              text-align: center;
+              transform: rotate(-10deg);
+              opacity: 0.85;
+              font-weight: bold;
             }
-            .hash-label {
-              font-weight: 600;
-              color: #475569;
-              word-break: break-all;
-              font-family: monospace;
+            .qr-column {
+              width: 34%;
+              text-align: center;
+            }
+            .qr-img {
+              width: 110px;
+              height: 110px;
+              display: block;
+              margin: 0 auto;
+            }
+            .qr-caption {
               font-size: 10px;
-              margin-top: 4px;
+              color: #555555;
+              margin-top: 6px;
+              line-height: 1.3;
+              text-align: center;
             }
-            .watermark {
-              position: absolute;
-              top: 50%;
-              left: 50%;
-              transform: translate(-50%, -50%) rotate(-45deg);
-              font-size: 90px;
-              color: rgba(15, 111, 255, 0.03);
-              font-weight: 800;
-              pointer-events: none;
-              text-transform: uppercase;
-              letter-spacing: 10px;
-              white-space: nowrap;
+            .sig-column {
+              width: 33%;
+              text-align: center;
+              align-items: center;
+            }
+            .sig-img-container {
+              min-height: 80px;
+              display: flex;
+              align-items: flex-end;
+              justify-content: center;
+              margin-bottom: 4px;
+            }
+            .sig-img {
+              width: 140px;
+              height: auto;
+              max-height: 80px;
+              object-fit: contain;
+              display: block;
+              mix-blend-mode: multiply;
+            }
+            .sig-line-divider {
+              border-top: 1px solid #000000;
+              width: 150px;
+              margin-top: 2px;
+              margin-bottom: 4px;
+            }
+            .sig-name {
+              font-size: 13px;
+              font-weight: bold;
+              color: #000000;
+            }
+            .sig-title, .sig-license {
+              font-size: 11px;
+              color: #555555;
+              line-height: 1.3;
+            }
+            .disclaimer-text {
+              font-family: Arial, sans-serif;
+              font-size: 10px;
+              color: #555555;
+              text-align: center;
+              margin-top: 15px;
+              font-style: italic;
+              width: 100%;
             }
           </style>
         </head>
         <body>
           <div class="certificate-container">
-            <div class="border-accent"></div>
-            <div class="watermark">VERIFIED</div>
             
-            <div class="header">
-              <div class="clinic-info">
-                <h1 class="clinic-name">${data.clinicName}</h1>
-                <div class="clinic-details">
-                  ${data.clinicAddress}<br>
-                  Tel: ${data.clinicPhone} | Email: ${data.clinicEmail}
-                </div>
-              </div>
-              <div>
-                ${logoPath ? `<img class="clinic-logo" src="${logoPath}" alt="Logo" />` : ''}
+            <!-- Header Section -->
+            <div class="header-container">
+              ${logoDataUrl ? `<img class="clinic-logo" src="${logoDataUrl}" alt="Clinic Logo" />` : ''}
+              <h1 class="clinic-name">${data.clinicName}</h1>
+              <p class="clinic-address">
+                ${formatAddress(data.clinicAddress)}
+              </p>
+            </div>
+            
+            <div class="divider-line"></div>
+
+            <!-- Title & Metadata -->
+            <div class="title-section">
+              <h2 class="cert-title">MEDICAL CERTIFICATE</h2>
+              <div class="cert-meta">
+                Certificate No: <span class="cert-no-highlight">${data.certificateNumber}</span><br>
+                Issued Date: ${formatDate(data.issueDate)}
               </div>
             </div>
 
-            <div class="certificate-title-box">
-              <h2 class="certificate-title">Medical Certificate</h2>
-              <div class="cert-number">Certificate No: ${data.certificateNumber}</div>
-            </div>
-
-            <div class="grid-container">
-              <div class="section-box">
-                <h3 class="section-title">Patient Details</h3>
-                <div class="field-row">
-                  <div class="field-label">Full Name:</div>
-                  <div class="field-value" style="font-weight: 600;">${data.patientName}</div>
-                </div>
-                <div class="field-row">
-                  <div class="field-label">ID / Passport:</div>
-                  <div class="field-value">${data.patientIdentifier}</div>
-                </div>
-                <div class="field-row">
-                  <div class="field-label">Date of Birth:</div>
-                  <div class="field-value">${new Date(data.patientDob).toLocaleDateString('en-SG', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-                </div>
-                <div class="field-row">
-                  <div class="field-label">Gender:</div>
-                  <div class="field-value">${data.patientGender}</div>
-                </div>
+            <!-- Patient Details Section -->
+            <div class="details-container">
+              <div class="detail-row">
+                <div class="detail-label">Name:</div>
+                <div class="detail-value" style="font-weight: bold;">${data.patientName}</div>
               </div>
-
-              <div class="section-box">
-                <h3 class="section-title">Certificate Details</h3>
-                <div class="field-row">
-                  <div class="field-label">Issue Date:</div>
-                  <div class="field-value">${new Date(data.issueDate).toLocaleDateString('en-SG')}</div>
-                </div>
-                <div class="field-row">
-                  <div class="field-label">Start Date:</div>
-                  <div class="field-value" style="font-weight: 600;">${new Date(data.startDate).toLocaleDateString('en-SG')}</div>
-                </div>
-                <div class="field-row">
-                  <div class="field-label">End Date:</div>
-                  <div class="field-value" style="font-weight: 600;">${new Date(data.endDate).toLocaleDateString('en-SG')}</div>
-                </div>
-                <div class="field-row">
-                  <div class="field-label">Duration:</div>
-                  <div class="field-value" style="font-weight: 600; color: #0F6FFF;">${data.durationDays} Day(s)</div>
-                </div>
+              <div class="detail-row">
+                <div class="detail-label">NRIC / Passport Number:</div>
+                <div class="detail-value">${data.patientIdentifier}</div>
+              </div>
+              <div class="detail-row">
+                <div class="detail-label">Date of Birth:</div>
+                <div class="detail-value">${formatPatientDob(data.patientDob)}</div>
+              </div>
+              <div class="detail-row">
+                <div class="detail-label">Gender:</div>
+                <div class="detail-value">${data.patientGender}</div>
               </div>
             </div>
 
-            <div class="diagnosis-box">
-              <h3 class="diagnosis-title">Medical Assessment & Remarks</h3>
-              <div class="diagnosis-text">
-                This is to certify that the patient has been examined and assessed by <strong>Dr. ${data.doctorName}</strong>, and diagnosed with: <strong>${data.diagnosis}</strong>. 
-                The patient is unfit for duty / requires medical leave for the period stated above.
-              </div>
-              ${data.remarks ? `<div style="margin-top: 10px; font-size: 13px; color: #475569;"><strong>Remarks:</strong> ${data.remarks}</div>` : ''}
+            <!-- Leave Details Row -->
+            <div class="leave-row">
+              <div>Start Date: <span class="leave-value">${formatDate(data.startDate)}</span></div>
+              <div>End Date: <span class="leave-value">${formatDate(data.endDate)}</span></div>
             </div>
 
-            <div class="footer-section">
-              <div class="verification-qr-box">
-                <img class="qr-code-img" src="${qrDataUrl}" alt="QR Verification" />
-                <div class="verification-text-box">
-                  <strong>Secure Verification:</strong><br>
-                  Scan QR code or visit <a href="${config.clientUrl}/verify" style="color: #0F6FFF; text-decoration: none;">healthverify.com/verify</a> to validate this document.<br>
-                  <strong>Verification Hash:</strong>
-                  <div class="hash-label">${data.verificationHash}</div>
+            <div class="cert-type-row">
+              Type of certificate granted: <span class="cert-type-value">Medical Certificate</span>
+            </div>
+
+            <!-- Certification Text -->
+            <div class="certification-text">
+              This is to certify that the patient has been examined and assessed by Dr ${data.doctorName.replace(/^Dr\.?\s+/i, '')} and is medically unfit for duty for the period stated above.
+            </div>
+
+            <!-- Footer Section -->
+            <div class="footer-container">
+              <!-- Left Column: Clinic Stamp -->
+              <div class="footer-column stamp-column">
+                <div class="stamp-box">
+                  ${data.clinicName.toUpperCase()}<br>
+                  ${formatAddress(data.clinicAddress)}<br>
+                  Tel: ${data.clinicPhone || '80615849'}
                 </div>
               </div>
 
-              <div class="doctor-signature-box">
-                ${signaturePath ? `<img class="signature-img" src="${signaturePath}" alt="Signature" />` : `<div style="height: 60px;"></div>`}
-                <div class="doctor-name-sign">Dr. ${data.doctorName}</div>
-                <div class="doctor-license-sign">MCR No. ${data.doctorLicense}<br>${data.doctorSpecialization}</div>
+              <!-- Center Column: QR Code -->
+              <div class="footer-column qr-column">
+                <img class="qr-img" src="${qrDataUrl}" alt="QR Verification" />
+                <div class="qr-caption">
+                  Scan QR code to verify this certificate
+                </div>
               </div>
+
+              <!-- Right Column: Doctor Signature -->
+              <div class="footer-column sig-column">
+                <div class="sig-img-container">
+                  <img class="sig-img" src="${signaturePath}" alt="Signature" />
+                </div>
+                <div class="sig-line-divider"></div>
+                <div class="sig-name">Dr ${data.doctorName.replace(/^Dr\.?\s+/i, '')}</div>
+                <div class="sig-title">${data.doctorSpecialization || 'General Practitioner'}</div>
+                <div class="sig-license">License No.: ${data.doctorLicense || 'M66656'}</div>
+              </div>
+            </div>
+
+            <!-- Disclaimer Section -->
+            <div class="disclaimer-text">
+              * This certificate is not valid for Court Attendance or Police Reporting
             </div>
 
           </div>
