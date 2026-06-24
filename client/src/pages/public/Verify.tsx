@@ -373,12 +373,6 @@ export default function Verify() {
                 <span className="text-md font-extrabold text-slate-900">{result.doctorName}</span>
               </div>
 
-              {/* Cryptographic Signature Box */}
-              <div className="gsap-result-item font-mono text-[9px] text-slate-400 bg-slate-50 border border-slate-150 p-3.5 rounded-2xl break-all text-left mb-6">
-                <span className="font-bold text-slate-500 block uppercase tracking-wider mb-1">SHA-256 Cryptographic Signature</span>
-                {result.verificationHash}
-              </div>
-
               {/* Footer Disclaimer */}
               <div className="gsap-result-item text-xs text-slate-500 italic font-semibold text-left mb-8 leading-relaxed">
                 This MC is not valid for Court Attendance or Police Report
